@@ -66,7 +66,7 @@ function menuPrompt(){
             type: "list",
             name: "promptChoice",
             message: "Make a selection:",
-            choices: ["View All Employees", "View All Employees by Department", chalk.red("Exit Program")]
+            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", chalk.red("Exit Program")]
           })
         .then(answer => {
             switch(answer.promptChoice){
@@ -76,6 +76,10 @@ function menuPrompt(){
 
                 case "View All Employees by Department":
                 queryDepartments();
+                break;
+
+                case "View All Employees by Manager":
+                queryManagers();
                 break;
 
                 case "\u001b[31mExit Program\u001b[39m":
@@ -96,6 +100,20 @@ function promptDepartments(departments){
           })
         .then(answer => {
             queryEmployeesByDepartment(answer.promptChoice);            
+        });
+}
+
+//manager prompt
+function promptManagers(managers){
+    inquirer
+        .prompt({
+            type: "list",
+            name: "promptChoice",
+            message: "Select Manager:",
+            choices: managers
+          })
+        .then(answer => {
+            queryEmployeesByManager(answer.promptChoice);            
         });
 }
 
@@ -147,6 +165,26 @@ function queryDepartments(){
     });
 }
 
+//query all managers
+function queryManagers(){
+    //sql query
+    const query = `
+    SELECT DISTINCT concat(manager.first_name, " ", manager.last_name) AS full_name
+    FROM employee
+    LEFT JOIN employee AS manager ON manager.id = employee.manager_id;`;
+    connection.query(query, (err, res) => {
+        // console.log(res);
+        if (err) throw err;
+        //extract manager names to array
+        const managers = [];
+        for (let i = 0; i < res.length; i++) {
+            managers.push(res[i].full_name);
+        }
+        //prompt for manager selection
+        promptManagers(managers);
+    });
+}
+
 //query employees by department
 function queryEmployeesByDepartment(department){
     //sql query
@@ -174,4 +212,34 @@ function queryEmployeesByDepartment(department){
         //render screen
         renderScreen(`${department} Department`, tableData);
     });
+}
+
+//query employees by manager
+function queryEmployeesByManager(manager){
+    //sql query
+    const query = `
+    SELECT employee.id, employee.first_name, employee.last_name, role.title, role.salary, department.name AS department_name, concat(manager.first_name, " ", manager.last_name) AS manager_full_name 
+    FROM employee 
+    INNER JOIN role ON employee.role_id = role.id
+    INNER JOIN employee AS manager ON employee.manager_id = manager.id
+    INNER JOIN department ON department.id = role.department_id
+    WHERE concat(manager.first_name, " ", manager.last_name) = "${manager}";`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        //build table data array from query result
+        const tableData = [];
+        for (let i = 0; i < res.length; i++) {
+            tableData.push({ 
+                "ID": res[i].id, 
+                "First Name": res[i].first_name,
+                "Last Name": res[i].last_name,
+                "Role": res[i].title,
+                "Salary": res[i].salary, 
+                "Department": res[i].department_name
+            });
+        }
+        //render screen
+        renderScreen(`Employees managed by ${manager}`, tableData);
+    });
+    console.log(manager);
 }
