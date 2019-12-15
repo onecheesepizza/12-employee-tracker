@@ -5,7 +5,7 @@ const clear = require('console-clear');
 const chalk = require('chalk');
 
 //-----DB connection
-var connection = mysql.createConnection({
+const connection = mysql.createConnection({
     //host and port
     host: "localhost",
     port: 3306,
@@ -91,7 +91,7 @@ function queryEmployeesAll(){
         if (err) throw err;
         //build table data array from query result
         const tableData = [];
-        for (var i = 0; i < res.length; i++) {
+        for (let i = 0; i < res.length; i++) {
             tableData.push({ 
                 "ID": res[i].id, 
                 "First Name": res[i].first_name,
