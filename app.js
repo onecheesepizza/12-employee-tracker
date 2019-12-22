@@ -66,7 +66,7 @@ function menuPrompt(){
             type: "list",
             name: "promptChoice",
             message: "Make a selection:",
-            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", chalk.red("Exit Program")]
+            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", "Update Employee Role", chalk.red("Exit Program")]
           })
         .then(answer => {
             switch(answer.promptChoice){
@@ -88,6 +88,10 @@ function menuPrompt(){
 
                 case "Remove Employee":
                 removeEmployee();
+                break;
+
+                case "Update Employee Role":
+                updateEmployeeRole();
                 break;
 
                 case "\u001b[31mExit Program\u001b[39m":
@@ -161,7 +165,6 @@ function queryDepartments(){
     //sql query
     const query = `SELECT department.name FROM department;`;
     connection.query(query, (err, res) => {
-        // console.log(res);
         if (err) throw err;
         //extract department names to array
         const departments = [];
@@ -181,7 +184,6 @@ function queryManagers(){
     FROM employee
     LEFT JOIN employee AS manager ON manager.id = employee.manager_id;`;
     connection.query(query, (err, res) => {
-        // console.log(res);
         if (err) throw err;
         //extract manager names to array
         const managers = [];
@@ -365,7 +367,7 @@ function addEmployee(){
 }
 
 function removeEmployee(){
-    //sql query
+    //sql query for Employees
     const query = `
     SELECT id, concat(employee.first_name, " ", employee.last_name) AS employee_full_name
     FROM employee ;`;
@@ -406,6 +408,104 @@ function removeEmployee(){
                 //show updated employee table
                 setTimeout(queryEmployeesAll, 500);
             });       
+        });
+    });
+}
+
+function updateEmployeeRole(){
+    //initialize updatedEmployee object
+    const updatedEmployee = {
+        id: 0,
+        firstName: "",
+        lastName: "", 
+        roleID: 0, 
+        managerID: 0
+    };
+    //sql query for Employees
+    const query = `
+    SELECT id, concat(employee.first_name, " ", employee.last_name) AS employee_full_name
+    FROM employee ;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        //extract employee names and ids to arrays
+        let employees = [];
+        let employeesNames = [];
+        for (let i=0;i<res.length;i++){
+            employees.push({
+                id: res[i].id,
+                fullName: res[i].employee_full_name});
+            employeesNames.push(res[i].employee_full_name);
+        }
+        //prompt for employee to update
+        inquirer
+        .prompt({
+            type: "list",
+            name: "employeePromptChoice",
+            message: "Select employee to delete:",
+            choices: employeesNames
+          })
+        .then(answer => {
+            //get id of chosen employee
+            const chosenEmployee = answer.employeePromptChoice;
+            let chosenEmployeeID;
+            for (let i = 0; i < employees.length; i++) {
+              if (employees[i].fullName === chosenEmployee) {
+                chosenEmployeeID = employees[i].id;
+                break;
+              }
+            }
+            //set updatedEmployee id
+            updatedEmployee.id = chosenEmployeeID;
+            //sql query for roles
+            const query = `SELECT role.title, role.id FROM role;`;
+            connection.query(query, (err, res) => {
+                if (err) throw err;
+                //extract role names and ids to arrays
+                const roles = [];
+                const rolesNames = [];
+                for (let i = 0; i < res.length; i++) {
+                    roles.push({
+                        id: res[i].id,
+                        title: res[i].title
+                    });
+                    rolesNames.push(res[i].title);
+                }
+                //prompt for role selection
+                inquirer
+                .prompt({
+                    type: "list",
+                    name: "rolePromptChoice",
+                    message: "Select Role:",
+                    choices: rolesNames
+                })
+                .then(answer => {
+                    //get id of chosen role
+                    const chosenRole = answer.rolePromptChoice;
+                    let chosenRoleID;
+                    for (let i = 0; i < roles.length; i++) {
+                        if (roles[i].title === chosenRole){
+                            chosenRoleID = roles[i].id;
+                        }
+                    }
+                    //set updatedEmployee role ID 
+                    updatedEmployee.roleID = chosenRoleID;
+                    //sql query to update role
+                    const query = `UPDATE employee SET ? WHERE ?`;
+                    connection.query(query, [
+                        {
+                          role_id: updatedEmployee.roleID
+                        },
+                        {
+                          id: updatedEmployee.id
+                        }
+                        ], (err, res) => {
+                        if (err) throw err;
+                        console.log("Employee Role Updated");
+                        //show updated employee table
+                        setTimeout(queryEmployeesAll, 500);
+                    });
+                });
+            });            
         });
     });
 }
