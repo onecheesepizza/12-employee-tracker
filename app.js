@@ -66,7 +66,7 @@ function menuPrompt(){
             type: "list",
             name: "promptChoice",
             message: "Make a selection:",
-            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", chalk.red("Exit Program")]
+            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", chalk.red("Exit Program")]
           })
         .then(answer => {
             switch(answer.promptChoice){
@@ -84,6 +84,10 @@ function menuPrompt(){
 
                 case "Add Employee":
                 addEmployee();
+                break;
+
+                case "Remove Employee":
+                removeEmployee();
                 break;
 
                 case "\u001b[31mExit Program\u001b[39m":
@@ -358,4 +362,50 @@ function addEmployee(){
                 });
             });            
         });
+}
+
+function removeEmployee(){
+    //sql query
+    const query = `
+    SELECT id, concat(employee.first_name, " ", employee.last_name) AS employee_full_name
+    FROM employee ;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        //extract employee names and ids to arrays
+        let employees = [];
+        let employeesNames = [];
+        for (let i=0;i<res.length;i++){
+            employees.push({
+                id: res[i].id,
+                fullName: res[i].employee_full_name});
+            employeesNames.push(res[i].employee_full_name);
+        }
+        //prompt for employee to remove
+        inquirer
+        .prompt({
+            type: "list",
+            name: "employeePromptChoice",
+            message: "Select employee to delete:",
+            choices: employeesNames
+          })
+        .then(answer => {
+            //get id of chosen employee
+            const chosenEmployee = answer.employeePromptChoice;
+            let chosenEmployeeID;
+            for (let i = 0; i < employees.length; i++) {
+              if (employees[i].fullName === chosenEmployee) {
+                chosenEmployeeID = employees[i].id;
+                break;
+              }
+            }
+            //remove employee sql query
+            const query = "DELETE FROM employee WHERE ?";
+            connection.query(query, {id: chosenEmployeeID}, (err, res) => {
+                if (err) throw err;
+                console.log("Employee Removed");
+                //show updated employee table
+                setTimeout(queryEmployeesAll, 500);
+            });       
+        });
+    });
 }
