@@ -257,6 +257,8 @@ function queryEmployeesByManager(manager){
     });
 }
 
+//-----add / remove / update functions
+
 //add employee
 function addEmployee(){
     //initialize newEmployee object
