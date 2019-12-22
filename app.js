@@ -66,7 +66,7 @@ function menuPrompt(){
             type: "list",
             name: "promptChoice",
             message: "Make a selection:",
-            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", chalk.red("Exit Program")]
+            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", chalk.red("Exit Program")]
           })
         .then(answer => {
             switch(answer.promptChoice){
@@ -80,6 +80,10 @@ function menuPrompt(){
 
                 case "View All Employees by Manager":
                 queryManagers();
+                break;
+
+                case "Add Employee":
+                addEmployee();
                 break;
 
                 case "\u001b[31mExit Program\u001b[39m":
@@ -241,5 +245,117 @@ function queryEmployeesByManager(manager){
         //render screen
         renderScreen(`Employees managed by ${manager}`, tableData);
     });
-    console.log(manager);
+}
+
+//add employee
+function addEmployee(){
+    //initialize newEmployee object
+    const newEmployee = {
+        firstName: "",
+        lastName: "", 
+        roleID: 0, 
+        managerID: 0
+    };
+    //new employee name prompt
+    inquirer
+        .prompt([{
+            name: "firstName",
+            message: "Enter first name: "
+            }, {
+            name: "lastName",
+            message: "Enter last name: "
+            }])
+        .then(answers => {
+            //set newEmployee name
+            newEmployee.firstName = answers.firstName;
+            newEmployee.lastName = answers.lastName;
+              
+            //sql query for roles
+            const query = `SELECT role.title, role.id FROM role;`;
+            connection.query(query, (err, res) => {
+                if (err) throw err;
+                //extract role names and ids to arrays
+                const roles = [];
+                const rolesNames = [];
+                for (let i = 0; i < res.length; i++) {
+                    roles.push({
+                        id: res[i].id,
+                        title: res[i].title
+                    });
+                    rolesNames.push(res[i].title);
+                }
+                //prompt for role selection
+                inquirer
+                .prompt({
+                    type: "list",
+                    name: "rolePromptChoice",
+                    message: "Select Role:",
+                    choices: rolesNames
+                  })
+                .then(answer => {
+                    //get id of chosen role
+                    const chosenRole = answer.rolePromptChoice;
+                    let chosenRoleID;
+                    for (let i = 0; i < roles.length; i++) {
+                        if (roles[i].title === chosenRole){
+                            chosenRoleID = roles[i].id;
+                        }
+                    }
+                    //set newEmployee role ID 
+                    newEmployee.roleID = chosenRoleID;
+                    //sql query for managers
+                    const query = `
+                    SELECT DISTINCT concat(manager.first_name, " ", manager.last_name) AS full_name, manager.id
+                    FROM employee
+                    LEFT JOIN employee AS manager ON manager.id = employee.manager_id;`;
+                    connection.query(query, (err, res) => {
+                        if (err) throw err;
+                        //extract manager names and ids to arrays
+                        const managers = [];
+                        const managersNames = [];
+                        for (let i = 0; i < res.length; i++) {
+                            managersNames.push(res[i].full_name);
+                            managers.push({
+                                id: res[i].id,
+                                fullName: res[i].full_name
+                            });
+                        }
+                        //prompt for manager selection
+                        inquirer
+                        .prompt({
+                            type: "list",
+                            name: "managerPromptChoice",
+                            message: "Select Manager:",
+                            choices: managersNames
+                          })
+                        .then(answer => {
+                            //get id of chosen manager
+                            const chosenManager = answer.managerPromptChoice;   
+                            let chosenManagerID;
+                            for (let i = 0; i < managers.length; i++) {
+                                if (managers[i].fullName === chosenManager){
+                                    chosenManagerID = managers[i].id;
+                                    break;
+                                }
+                            }
+                            //set newEmployee manager ID
+                            newEmployee.managerID = chosenManagerID;
+                            //add employee insert sql query
+                            const query = "INSERT INTO employee SET ?";
+                            connection.query(query, {
+                                first_name: newEmployee.firstName,
+                                last_name: newEmployee.lastName,
+                                role_id: newEmployee.roleID || 0,
+                                manager_id: newEmployee.managerID || 0
+                                }, (err, res) => {
+                                if (err) throw err;
+                                console.log("Employee Added");
+                                //show updated employee table
+                                setTimeout(queryEmployeesAll, 500);
+                            });                            
+                        });
+                    });
+                });
+            });            
+        });
 }
