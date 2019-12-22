@@ -66,7 +66,7 @@ function menuPrompt(){
             type: "list",
             name: "promptChoice",
             message: "Make a selection:",
-            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", "Update Employee Role", chalk.red("Exit Program")]
+            choices: ["View All Employees", "View All Employees by Department", "View All Employees by Manager", "Add Employee", "Remove Employee", "Update Employee Role", "Update Employee Manager", chalk.red("Exit Program")]
           })
         .then(answer => {
             switch(answer.promptChoice){
@@ -92,6 +92,10 @@ function menuPrompt(){
 
                 case "Update Employee Role":
                 updateEmployeeRole();
+                break;
+
+                case "Update Employee Manager":
+                updateEmployeeManager();
                 break;
 
                 case "\u001b[31mExit Program\u001b[39m":
@@ -416,10 +420,7 @@ function updateEmployeeRole(){
     //initialize updatedEmployee object
     const updatedEmployee = {
         id: 0,
-        firstName: "",
-        lastName: "", 
         roleID: 0, 
-        managerID: 0
     };
     //sql query for Employees
     const query = `
@@ -441,7 +442,7 @@ function updateEmployeeRole(){
         .prompt({
             type: "list",
             name: "employeePromptChoice",
-            message: "Select employee to delete:",
+            message: "Select employee to update:",
             choices: employeesNames
           })
         .then(answer => {
@@ -506,6 +507,105 @@ function updateEmployeeRole(){
                     });
                 });
             });            
+        });
+    });
+}
+
+function updateEmployeeManager(){
+    //initialize updatedEmployee object
+    const updatedEmployee = {
+        id: 0,
+        managerID: 0
+    };
+    //sql query for Employees
+    const query = `
+    SELECT id, concat(employee.first_name, " ", employee.last_name) AS employee_full_name
+    FROM employee ;`;
+    connection.query(query, (err, res) => {
+        if (err) throw err;
+        //extract employee names and ids to arrays
+        let employees = [];
+        let employeesNames = [];
+        for (let i=0;i<res.length;i++){
+            employees.push({
+                id: res[i].id,
+                fullName: res[i].employee_full_name});
+            employeesNames.push(res[i].employee_full_name);
+        }
+        //prompt for employee to update
+        inquirer
+        .prompt({
+            type: "list",
+            name: "employeePromptChoice",
+            message: "Select employee to update:",
+            choices: employeesNames
+          })
+        .then(answer => {
+            //get id of chosen employee
+            const chosenEmployee = answer.employeePromptChoice;
+            let chosenEmployeeID;
+            for (let i = 0; i < employees.length; i++) {
+              if (employees[i].fullName === chosenEmployee) {
+                chosenEmployeeID = employees[i].id;
+                break;
+              }
+            }
+            //set updatedEmployee id
+            updatedEmployee.id = chosenEmployeeID;
+            //sql query for managers
+            const query = `
+            SELECT DISTINCT concat(manager.first_name, " ", manager.last_name) AS full_name, manager.id
+            FROM employee
+            LEFT JOIN employee AS manager ON manager.id = employee.manager_id;`;
+            connection.query(query, (err, res) => {
+                if (err) throw err;
+                //extract manager names and ids to arrays
+                const managers = [];
+                const managersNames = [];
+                for (let i = 0; i < res.length; i++) {
+                    managersNames.push(res[i].full_name);
+                    managers.push({
+                        id: res[i].id,
+                        fullName: res[i].full_name
+                    });
+                }
+                //prompt for manager selection
+                inquirer
+                .prompt({
+                    type: "list",
+                    name: "managerPromptChoice",
+                    message: "Select Manager:",
+                    choices: managersNames
+                  })
+                .then(answer => {
+                    //get id of chosen manager
+                    const chosenManager = answer.managerPromptChoice;   
+                    let chosenManagerID;
+                    for (let i = 0; i < managers.length; i++) {
+                        if (managers[i].fullName === chosenManager){
+                            chosenManagerID = managers[i].id;
+                            break;
+                        }
+                    }
+                    //set newEmployee manager ID
+                    updatedEmployee.managerID = chosenManagerID;
+                    //sql query to update manager
+                    const query = `UPDATE employee SET ? WHERE ?`;
+                    connection.query(query, [
+                        {
+                          manager_id: updatedEmployee.managerID
+                        },
+                        {
+                          id: updatedEmployee.id
+                        }
+                        ], (err, res) => {
+                        if (err) throw err;
+                        console.log("Employee Role Updated");
+                        //show updated employee table
+                        setTimeout(queryEmployeesAll, 500);
+                    });              
+                });
+            });
         });
     });
 }
